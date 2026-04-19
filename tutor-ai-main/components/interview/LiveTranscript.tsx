@@ -7,7 +7,7 @@ import { ConversationTurn } from "@/types";
 
 interface LiveTranscriptProps {
   history: ConversationTurn[];
-  currentAIMessage?: string; // ✅ made optional
+  currentAIMessage?: string;
   isTyping: boolean;
 }
 
@@ -16,26 +16,26 @@ function useTypewriter(text: string = "", enabled: boolean, speed = 18) {
   const [displayed, setDisplayed] = useState("");
 
   useEffect(() => {
-    // ✅ Handle empty/undefined safely
+    // Handle empty safely
     if (!text) {
       setDisplayed("");
       return;
     }
 
-    // ✅ If typing disabled, show full text instantly
+    // If typing disabled → show full instantly
     if (!enabled) {
       setDisplayed(text);
       return;
     }
 
-    setDisplayed("");
     let i = 0;
+    setDisplayed("");
 
     const interval = setInterval(() => {
-      if (i < text.length) {
-        setDisplayed(text.slice(0, i + 1));
-        i++;
-      } else {
+      i++;
+      setDisplayed(text.slice(0, i));
+
+      if (i >= text.length) {
         clearInterval(interval);
       }
     }, speed);
@@ -53,15 +53,18 @@ export function LiveTranscript({
 }: LiveTranscriptProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Always pass safe string
-  const typedMessage = useTypewriter(currentAIMessage || "", isTyping);
+  // ✅ Normalize value (fixes TypeScript error completely)
+  const safeMessage = currentAIMessage ?? "";
 
-  // Scroll to bottom on new content
+  // Typewriter output
+  const typedMessage = useTypewriter(safeMessage, isTyping);
+
+  // Scroll to bottom on updates
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, typedMessage]);
 
-  // Show all history except the last assistant turn (shown as typewriter)
+  // Show all history except last assistant message
   const pastTurns = history.slice(0, -1);
 
   return (
@@ -69,6 +72,7 @@ export function LiveTranscript({
       className="w-full max-w-2xl max-h-64 overflow-y-auto space-y-4 px-1"
       style={{ fontFamily: "var(--font-mono)" }}
     >
+      {/* Past conversation */}
       {pastTurns.map((turn, i) => (
         <div key={i} className="space-y-1">
           <span
@@ -82,24 +86,26 @@ export function LiveTranscript({
           >
             {turn.role === "assistant" ? "INTERVIEWER" : "YOU"}
           </span>
+
           <p className="text-sm text-white/60 leading-relaxed">
             {turn.content}
           </p>
         </div>
       ))}
 
-      {/* Latest AI message with typewriter */}
-      {currentAIMessage?.length > 0 && (
+      {/* Latest AI message (typewriter) */}
+      {safeMessage.length > 0 && (
         <div className="space-y-1">
           <span className="text-[10px] tracking-[0.2em] uppercase text-white/35">
             INTERVIEWER
           </span>
+
           <p className="text-sm text-[#F2F2F2] leading-relaxed">
-            {isTyping ? typedMessage : currentAIMessage}
-            {isTyping &&
-              typedMessage.length < (currentAIMessage?.length || 0) && (
-                <span className="animate-pulse">▌</span>
-              )}
+            {isTyping ? typedMessage : safeMessage}
+
+            {isTyping && typedMessage.length < safeMessage.length && (
+              <span className="animate-pulse">▌</span>
+            )}
           </p>
         </div>
       )}
